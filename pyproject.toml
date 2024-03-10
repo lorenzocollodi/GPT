@@ -1,0 +1,23 @@
+[tool.poetry]
+name = "gpt"
+version = "0.1.0"
+description = "A minimal implementation of GPT"
+authors = ["lorenzocollodi <lorenzocollodi@gmail.com>"]
+packages = [{ include = "miniGPT", from = "src" },]
+license = "MIT"
+readme = "README.md"
+
+[tool.poetry.dependencies]
+python = "^3.9"
+torch = "^2.2.1"
+numpy = "^1.26.4"
+transformers = "^4.38.2"
+datasets = "^2.18.0"
+tiktoken = "^0.6.0"
+wandb = "^0.16.4"
+tqdm = "^4.66.2"
+
+
+[build-system]
+requires = ["poetry-core"]
+build-backend = "poetry.core.masonry.api"
