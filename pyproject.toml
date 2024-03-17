@@ -18,6 +18,12 @@ wandb = "^0.16.4"
 tqdm = "^4.66.2"
 
 
+[tool.poetry.group.dev.dependencies]
+mypy = "^1.9.0"
+isort = "^5.13.2"
+black = "^24.3.0"
+flake8 = "^7.0.0"
+
 [build-system]
 requires = ["poetry-core"]
 build-backend = "poetry.core.masonry.api"
