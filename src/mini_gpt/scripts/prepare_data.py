@@ -54,7 +54,7 @@ def main(args: argparse.Namespace) -> None:
     make_BPE(
         str(data_path / "train.txt"),
         alphabet,
-        str(model_path / "tokenizer.pt"),
+        str(model_path / "tokenizer.json"),
     )
 
 

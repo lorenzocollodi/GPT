@@ -1,14 +1,14 @@
 [tool.poetry]
-name = "gpt"
+name = "mini-gpt"
 version = "0.1.0"
 description = "A minimal implementation of GPT"
 authors = ["lorenzocollodi <lorenzocollodi@gmail.com>"]
-packages = [{ include = "miniGPT", from = "src" },]
+packages = [{ include = "mini_gpt", from = "src" },]
 license = "MIT"
 readme = "README.md"
 
 [tool.poetry.dependencies]
-python = "^3.9"
+python = "^3.10"
 torch = "^2.2.1"
 numpy = "^1.26.4"
 transformers = "^4.38.2"
