@@ -15,9 +15,10 @@ class MultiHeadAttentionBlock(nn.Module):
         self.k_size = k_size
         self.heads = heads
         self.output_size = output_size
-        self.Mq = nn.Parameter(zeros(self.input_size, self.heads * self.k_size))
-        self.Mk = nn.Parameter(zeros(self.input_size, self.heads * self.k_size))
-        self.Mv = nn.Parameter(zeros(self.input_size, self.heads * self.v_size))
+        self.Mq = nn.Linear(self.input_size, self.heads * self.k_size)
+        self.Mk = nn.Linear(self.input_size, self.heads * self.k_size)
+        self.Mv = nn.Linear(self.input_size, self.heads * self.v_size)
+        self.Wo = nn.Linear(self.heads * self.v_size, self.heads * self.v_size)
 
     def forward(self, x: Tensor):
         q, k, v = self._get_qkv(x)
@@ -25,7 +26,7 @@ class MultiHeadAttentionBlock(nn.Module):
         att_weights = self._get_att_weights(
             q.view(B * self.heads, C, -1), k.view(B * self.heads, C, -1)
         )
-        return (att_weights.view(B, C, self.heads, -1) @ v).view(B, C, -1)
+        return self.Wo.forward((att_weights.view(B, C, self.heads, -1) @ v).view(B, C, -1))
 
     def _get_att_weights(self, q: Tensor, k: Tensor) -> Tensor:
         product = q @ k.permute(0, 2, 1)
@@ -33,11 +34,11 @@ class MultiHeadAttentionBlock(nn.Module):
 
     def _get_qkv(self, x: Tensor) -> tuple[Tensor, Tensor, Tensor]:
         B, C, _ = x.shape
-        q = (x @ self.Mq).view(B, self.heads, C, -1)
+        q = self.Mq.forward(x).view(B, self.heads, C, -1)
         assert isinstance(q, Tensor)
-        k = (x @ self.Mk).view(B, self.heads, C, -1)
+        k = self.Mk.forward(x).view(B, self.heads, C, -1)
         assert isinstance(k, Tensor)
-        v = (x @ self.Mv).view(B, self.heads, C, -1)
+        v = self.Mv.forward(x).view(B, self.heads, C, -1)
         assert isinstance(v, Tensor)
         return q, k, v
 
@@ -60,7 +61,7 @@ class MaskedMultiHeadAttentionBlock(MultiHeadAttentionBlock):
         ).view(B * C, self.heads, C, -1)
         v = v.repeat(C, 1, 1, 1)
         att_weights.view(B, C, self.heads, -1).repeat(C, 1, 1, 1)
-        return (att_weights.view(B * C, C, self.heads, -1) @ v).view(B * C, C, -1)
+        return self.Wo.forward((att_weights.view(B * C, C, self.heads, -1) @ v).view(B * C, C, -1))
 
 
 if __name__ == "__main__":
