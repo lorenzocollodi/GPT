@@ -20,6 +20,18 @@ class MultiHeadAttentionBlock(nn.Module):
         self.Mv = nn.Parameter(zeros(self.input_size, self.heads * self.v_size))
 
     def forward(self, x: Tensor):
+        q, k, v = self._get_qkv(x)
+        B, _, C, _ = v.shape
+        att_weights = self._get_att_weights(
+            q.view(B * self.heads, C, -1), k.view(B * self.heads, C, -1)
+        )
+        return (att_weights.view(B, C, self.heads, -1) @ v).view(B, C, -1)
+
+    def _get_att_weights(self, q: Tensor, k: Tensor) -> Tensor:
+        product = q @ k.permute(0, 2, 1)
+        return nn.functional.softmax(product / sqrt(Tensor([k.shape[2]])), dim=1)
+
+    def _get_qkv(self, x: Tensor) -> tuple[Tensor, Tensor, Tensor]:
         B, C, _ = x.shape
         q = (x @ self.Mq).view(B, self.heads, C, -1)
         assert isinstance(q, Tensor)
@@ -27,12 +39,28 @@ class MultiHeadAttentionBlock(nn.Module):
         assert isinstance(k, Tensor)
         v = (x @ self.Mv).view(B, self.heads, C, -1)
         assert isinstance(v, Tensor)
-        product = q.view(B * self.heads, C, -1) @ k.permute(0, 1, 3, 2).view(
-            B * self.heads, -1, C
+        return q, k, v
+
+
+class MaskedMultiHeadAttentionBlock(MultiHeadAttentionBlock):
+    def forward(self, x: Tensor):
+        if not self.training:
+            return super().forward(x)
+        q, k, v = self._get_qkv(x)
+        B, _, C, _ = v.shape
+        att_weights = (
+            self._get_att_weights(
+                q.view(B * self.heads, C, -1), k.view(B * self.heads, C, -1)
+            )
+            .unsqueeze(1)
+            .repeat(1, C, 1, 1, 1)
         )
-        normalised_product = product / sqrt(Tensor([self.k_size]))
-        head_weights = nn.functional.softmax(normalised_product, dim=1)
-        return (head_weights.view(B, C, self.heads, -1) @ v).view(B, C, -1)
+        att_weights.permute(1, 0, 2, 3, 4).view(C, -1).triu().view(
+            C, B, C, self.heads, -1
+        ).view(B * C, self.heads, C, -1)
+        v = v.repeat(C, 1, 1, 1)
+        att_weights.view(B, C, self.heads, -1).repeat(C, 1, 1, 1)
+        return (att_weights.view(B * C, C, self.heads, -1) @ v).view(B * C, C, -1)
 
 
 class GPT(nn.Module):
@@ -44,6 +72,6 @@ class GPT(nn.Module):
 
 
 if __name__ == "__main__":
-    block = MultiHeadAttentionBlock()
+    block = MaskedMultiHeadAttentionBlock()
     input = zeros((4, 8, 1024))
     print(block.forward(input).shape)
