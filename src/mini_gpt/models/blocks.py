@@ -26,7 +26,9 @@ class MultiHeadAttentionBlock(nn.Module):
         att_weights = self._get_att_weights(
             q.view(B * self.heads, C, -1), k.view(B * self.heads, C, -1)
         )
-        return self.Wo.forward((att_weights.view(B, C, self.heads, -1) @ v).view(B, C, -1))
+        return self.Wo.forward(
+            (att_weights.view(B, C, self.heads, -1) @ v).view(B, C, -1)
+        )
 
     def _get_att_weights(self, q: Tensor, k: Tensor) -> Tensor:
         product = q @ k.permute(0, 2, 1)
@@ -61,7 +63,9 @@ class MaskedMultiHeadAttentionBlock(MultiHeadAttentionBlock):
         ).view(B * C, self.heads, C, -1)
         v = v.repeat(C, 1, 1, 1)
         att_weights.view(B, C, self.heads, -1).repeat(C, 1, 1, 1)
-        return self.Wo.forward((att_weights.view(B * C, C, self.heads, -1) @ v).view(B * C, C, -1))
+        return self.Wo.forward(
+            (att_weights.view(B * C, C, self.heads, -1) @ v).view(B * C, C, -1)
+        )
 
 
 if __name__ == "__main__":
