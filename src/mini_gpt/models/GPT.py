@@ -1,3 +1,4 @@
+from typing import Any
 from torch import concat, long, zeros, Tensor, nn
 from mini_gpt.models.blocks import (
     MaskedMultiHeadAttentionBlock,
@@ -31,18 +32,26 @@ class GPT(nn.Module):
         self.pos_embeddings = nn.Parameter(
             zeros(context_length, positional_encoding), requires_grad=True
         )
-        self.out_mlp = nn.Linear(positional_encoding + encoding_dimension, num_tokens)
+        self.out_mlp = nn.Linear(context_length*(positional_encoding + encoding_dimension), num_tokens)
+        self._CELoss = nn.CrossEntropyLoss()
 
-    def forward(self, x: Tensor) -> Tensor:
-        B, _ = x.shape
+
+    def forward(self, x: Tensor, gt: Tensor | None = None) -> Tensor:
+        B, C = x.shape
         embeddings = self.meaning_embeddings(
             nn.functional.one_hot(x, num_classes=self._num_tokens).float()
         )
         embeddings = concat((embeddings, self.pos_embeddings.repeat(B, 1, 1)), 2)
         output = self.input_block.forward(embeddings)
         output = self.seq_blocks(output)
+        assert isinstance(output, Tensor)
+        output = output.view(B*C, -1)
         logits = self.out_mlp(output)
-        return logits
+        assert isinstance(logits, Tensor)
+        if gt is None:
+            return logits
+        loss = self._CELoss(logits, gt)
+        return loss
 
 
 if __name__ == "__main__":
