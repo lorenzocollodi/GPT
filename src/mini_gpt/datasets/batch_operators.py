@@ -1,4 +1,4 @@
-from torch import Tensor, zeros_like, Size
+from torch import Tensor, zeros_like
 
 
 def expand_gt(input: Tensor, gt: Tensor) -> Tensor:
