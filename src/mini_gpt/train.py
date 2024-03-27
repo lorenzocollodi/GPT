@@ -1,6 +1,6 @@
 from torch import randint, nn, optim
 
-from mini_gpt.datasets.batch_operators import expand_gt
+from mini_gpt.datasets.batch_operators import expand_gt, get_mask, time_expand
 from mini_gpt.datasets.dataset import TokensDataset
 from mini_gpt.models.GPT import GPT
 from transformers import PreTrainedTokenizerFast
@@ -26,7 +26,9 @@ def train():
         
         batch_x, batch_y = dataset.get_batch(batch_idxs)
         batch_y = expand_gt(batch_x, batch_y)
-        loss = gpt_model.forward(batch_x, batch_y)
+        batch_x = time_expand(batch_x)
+        mask = get_mask(batch_x)
+        loss = gpt_model.forward(batch_x.reshape(-1, CONTEXT_LENGTH), batch_y, mask.reshape(-1, CONTEXT_LENGTH))
         for param in gpt_model.parameters():
             param.grad = None
         loss.backward()

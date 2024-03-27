@@ -2,10 +2,9 @@ from typing import Any
 from torch import concat, long, zeros, Tensor, nn
 from mini_gpt.models.blocks import (
     MaskedMultiHeadAttentionBlock,
-    MultiHeadAttentionBlock,
 )
 
-
+nn.MultiheadAttention
 class GPT(nn.Module):
     def __init__(
         self,
@@ -17,35 +16,32 @@ class GPT(nn.Module):
     ):
         super().__init__()
         self._num_tokens = num_tokens
-        self.input_block = MaskedMultiHeadAttentionBlock(
-            input_size=positional_encoding + encoding_dimension
-        )
         self.seq_blocks = nn.Sequential(
             *[
-                MultiHeadAttentionBlock(
+                MaskedMultiHeadAttentionBlock(
                     input_size=positional_encoding + encoding_dimension
                 )
                 for _ in range(depth)
             ]
         )
-        self.meaning_embeddings = nn.Linear(num_tokens, encoding_dimension)
-        self.pos_embeddings = nn.Parameter(
-            zeros(context_length, positional_encoding), requires_grad=True
-        )
+        self.meaning_embeddings = nn.Embedding(num_tokens, encoding_dimension)
+        self.pos_embeddings = nn.Embedding(context_length, positional_encoding)
         self.out_mlp = nn.Linear(context_length*(positional_encoding + encoding_dimension), num_tokens)
         self._CELoss = nn.CrossEntropyLoss()
 
 
-    def forward(self, x: Tensor, gt: Tensor | None = None) -> Tensor:
+    def forward(self, x: Tensor, gt: Tensor | None = None, mask: Tensor | None = None) -> Tensor:
         B, C = x.shape
-        embeddings = self.meaning_embeddings(
-            nn.functional.one_hot(x, num_classes=self._num_tokens).float()
-        )
-        embeddings = concat((embeddings, self.pos_embeddings.repeat(B, 1, 1)), 2)
-        output = self.input_block.forward(embeddings)
-        output = self.seq_blocks(output)
-        assert isinstance(output, Tensor)
-        output = output.view(B*C, -1)
+        embeddings = self.meaning_embeddings.forward(x)
+        pos_embeddings = self.pos_embeddings.forward(Tensor([pos_idx for pos_idx in range(C)]).long())
+        assert isinstance(embeddings, Tensor)
+        assert isinstance(pos_embeddings, Tensor)
+        inpt = concat((embeddings, pos_embeddings.repeat(B, 1, 1)), 2)
+        
+        for block in self.seq_blocks:
+            inpt = block.forward(inpt, mask)
+        assert isinstance(inpt, Tensor)
+        output = inpt.view(B, -1)
         logits = self.out_mlp(output)
         assert isinstance(logits, Tensor)
         if gt is None:

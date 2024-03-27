@@ -46,26 +46,24 @@ class MultiHeadAttentionBlock(nn.Module):
 
 
 class MaskedMultiHeadAttentionBlock(MultiHeadAttentionBlock):
-    def forward(self, x: Tensor):
-        if not self.training:
-            return super().forward(x)
+    def forward(self, x: Tensor, mask: Tensor | None = None):
         q, k, v = self._get_qkv(x)
         B, _, C, _ = v.shape
-        att_weights = (
-            self._get_att_weights(
-                q.view(B * self.heads, C, -1), k.view(B * self.heads, C, -1)
-            )
-            .unsqueeze(1)
-            .repeat(1, C, 1, 1, 1)
+        att_weights = self._get_att_weights(
+            q.view(B * self.heads, C, -1), k.view(B * self.heads, C, -1),
+            mask
         )
-        att_weights.permute(1, 0, 2, 3, 4).view(C, -1).triu().view(
-            C, B, C, self.heads, -1
-        ).view(B * C, self.heads, C, -1)
-        v = v.repeat(C, 1, 1, 1)
-        att_weights.view(B, C, self.heads, -1).repeat(C, 1, 1, 1)
         return self.Wo.forward(
-            (att_weights.view(B * C, C, self.heads, -1) @ v).view(B * C, C, -1)
+            (att_weights.view(B, C, self.heads, -1) @ v).view(B, C, -1)
         )
+
+    def _get_att_weights(self, q: Tensor, k: Tensor, mask: Tensor | None = None) -> Tensor:
+        product = q @ k.permute(0, 2, 1)
+        if mask is not None:
+            B, C = mask.shape
+            mask =  mask.repeat(1, self.heads).view(B*self.heads, C)
+            product = product + mask.unsqueeze(-1)
+        return nn.functional.softmax(product / sqrt(Tensor([k.shape[2]])), dim=1)
 
 
 if __name__ == "__main__":
