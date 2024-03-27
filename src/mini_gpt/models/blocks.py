@@ -50,18 +50,19 @@ class MaskedMultiHeadAttentionBlock(MultiHeadAttentionBlock):
         q, k, v = self._get_qkv(x)
         B, _, C, _ = v.shape
         att_weights = self._get_att_weights(
-            q.view(B * self.heads, C, -1), k.view(B * self.heads, C, -1),
-            mask
+            q.view(B * self.heads, C, -1), k.view(B * self.heads, C, -1), mask
         )
         return self.Wo.forward(
             (att_weights.view(B, C, self.heads, -1) @ v).view(B, C, -1)
         )
 
-    def _get_att_weights(self, q: Tensor, k: Tensor, mask: Tensor | None = None) -> Tensor:
+    def _get_att_weights(
+        self, q: Tensor, k: Tensor, mask: Tensor | None = None
+    ) -> Tensor:
         product = q @ k.permute(0, 2, 1)
         if mask is not None:
             B, C = mask.shape
-            mask =  mask.repeat(1, self.heads).view(B*self.heads, C)
+            mask = mask.repeat(1, self.heads).view(B * self.heads, C)
             product = product + mask.unsqueeze(-1)
         return nn.functional.softmax(product / sqrt(Tensor([k.shape[2]])), dim=1)
 

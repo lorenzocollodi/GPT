@@ -1,10 +1,10 @@
-from typing import Any
-from torch import concat, long, zeros, Tensor, nn
-from mini_gpt.models.blocks import (
-    MaskedMultiHeadAttentionBlock,
-)
+from torch import Tensor, concat, long, nn, zeros
+
+from mini_gpt.models.blocks import MaskedMultiHeadAttentionBlock
 
 nn.MultiheadAttention
+
+
 class GPT(nn.Module):
     def __init__(
         self,
@@ -26,18 +26,23 @@ class GPT(nn.Module):
         )
         self.meaning_embeddings = nn.Embedding(num_tokens, encoding_dimension)
         self.pos_embeddings = nn.Embedding(context_length, positional_encoding)
-        self.out_mlp = nn.Linear(context_length*(positional_encoding + encoding_dimension), num_tokens)
+        self.out_mlp = nn.Linear(
+            context_length * (positional_encoding + encoding_dimension), num_tokens
+        )
         self._CELoss = nn.CrossEntropyLoss()
 
-
-    def forward(self, x: Tensor, gt: Tensor | None = None, mask: Tensor | None = None) -> Tensor:
+    def forward(
+        self, x: Tensor, gt: Tensor | None = None, mask: Tensor | None = None
+    ) -> Tensor:
         B, C = x.shape
         embeddings = self.meaning_embeddings.forward(x)
-        pos_embeddings = self.pos_embeddings.forward(Tensor([pos_idx for pos_idx in range(C)]).long())
+        pos_embeddings = self.pos_embeddings.forward(
+            Tensor([pos_idx for pos_idx in range(C)]).long()
+        )
         assert isinstance(embeddings, Tensor)
         assert isinstance(pos_embeddings, Tensor)
         inpt = concat((embeddings, pos_embeddings.repeat(B, 1, 1)), 2)
-        
+
         for block in self.seq_blocks:
             inpt = block.forward(inpt, mask)
         assert isinstance(inpt, Tensor)

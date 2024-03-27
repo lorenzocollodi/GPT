@@ -11,12 +11,16 @@ def expand_gt(input: Tensor, gt: Tensor) -> Tensor:
     return gt_expanded.view(-1)
 
 
-def time_expand(inpt: Tensor,) -> Tensor:
+def time_expand(
+    inpt: Tensor,
+) -> Tensor:
     B, C = inpt.shape
     return inpt.unsqueeze(1).repeat(1, C, 1)
 
 
-def get_mask(inpt: Tensor,) -> Tensor:
+def get_mask(
+    inpt: Tensor,
+) -> Tensor:
     B, T, C = inpt.shape
     mask = triu(ones_like(inpt).view(T, -1), 1).view(T, B, C).permute(1, 0, 2)
     return mask
