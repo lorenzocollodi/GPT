@@ -1,4 +1,4 @@
-from torch import Tensor, nn, sqrt, zeros
+from torch import Tensor, nn, sqrt, tensor, zeros
 
 
 class MultiHeadAttentionBlock(nn.Module):
@@ -37,7 +37,9 @@ class MultiHeadAttentionBlock(nn.Module):
 
     def _get_att_weights(self, q: Tensor, k: Tensor) -> Tensor:
         product = q @ k.permute(0, 2, 1)
-        return nn.functional.softmax(product / sqrt(Tensor([self._k_size])), dim=1)
+        return nn.functional.softmax(
+            product / sqrt(tensor([self._k_size], device=product.device)), dim=1
+        )
 
     def _get_qkv(self, x: Tensor) -> tuple[Tensor, Tensor, Tensor]:
         B, _, _ = x.shape
@@ -75,7 +77,9 @@ class MaskedMultiHeadAttentionBlock(MultiHeadAttentionBlock):
                 B * self._heads, self._context_length
             )
             product = product + mask.unsqueeze(-1)
-        return nn.functional.softmax(product / sqrt(Tensor([k.shape[2]])), dim=1)
+        return nn.functional.softmax(
+            product / sqrt(tensor([k.shape[2]], device=product.device)), dim=1
+        )
 
 
 if __name__ == "__main__":

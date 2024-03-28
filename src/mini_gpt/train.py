@@ -1,4 +1,4 @@
-from torch import no_grad, optim, randint
+from torch import cuda, device, no_grad, optim, randint
 from torch.utils.tensorboard import SummaryWriter
 from transformers import PreTrainedTokenizerFast
 
@@ -16,11 +16,18 @@ CONTEXT_LENGTH = 8
 
 
 def train():
+    if cuda.is_available():
+        data_device = device("cuda")
+    else:
+        data_device = device("cpu")
+
     writer = SummaryWriter()
     tokenizer = PreTrainedTokenizerFast(tokenizer_file=TOKENIZER_PATH)
-    train_dataset = TokensDataset(CONTEXT_LENGTH, TRAIN_DATA_PATH, tokenizer)
-    val_dataset = TokensDataset(CONTEXT_LENGTH, VAL_DATA_PATH, tokenizer)
-    gpt_model = GPT()
+    train_dataset = TokensDataset(
+        CONTEXT_LENGTH, TRAIN_DATA_PATH, tokenizer, data_device
+    )
+    val_dataset = TokensDataset(CONTEXT_LENGTH, VAL_DATA_PATH, tokenizer, data_device)
+    gpt_model = GPT().to(data_device)
     for param in gpt_model.parameters():
         param.requires_grad = True
     optimizer = optim.AdamW(gpt_model.parameters())
