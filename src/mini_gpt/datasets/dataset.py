@@ -1,4 +1,4 @@
-from torch import Tensor, stack, tensor
+from torch import Tensor, concat, stack, tensor
 from transformers import PreTrainedTokenizerFast
 
 
@@ -18,7 +18,7 @@ class TokensDataset:
     def __getitem__(self, idx: int) -> tuple[Tensor, Tensor]:
         x = self._all_tokens[idx : idx + self._context_length]
         y = self._all_tokens[idx + 1]
-        return tensor(x), tensor(y)
+        return tensor(x), tensor([y])
 
     def get_batch(self, idxs: list[int] | Tensor) -> tuple[Tensor, Tensor]:
         if isinstance(idxs, Tensor):
@@ -29,4 +29,4 @@ class TokensDataset:
             inpt, outpt = self[idx]
             inputs.append(inpt)
             outputs.append(outpt)
-        return stack(inputs), stack(outputs)
+        return stack(inputs), concat(outputs, axis=0)
