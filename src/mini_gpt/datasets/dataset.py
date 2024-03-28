@@ -4,10 +4,10 @@ from transformers import PreTrainedTokenizerFast
 
 class TokensDataset:
     def __init__(
-        self, context_length: int, tokenizer_path: str, data_path: str
+        self, context_length: int, data_path: str, tokenizer: PreTrainedTokenizerFast
     ) -> None:
         self._text = open(data_path, "r").read()
-        self.tokenizer = PreTrainedTokenizerFast(tokenizer_file=tokenizer_path)
+        self.tokenizer = tokenizer
         self._all_tokens = self.tokenizer.encode(self._text)
         self._n_tokens = len(self._all_tokens)
         self._context_length = context_length
@@ -20,7 +20,9 @@ class TokensDataset:
         y = self._all_tokens[idx + 1]
         return tensor(x), tensor(y)
 
-    def get_batch(self, idxs: list[int]) -> tuple[Tensor, Tensor]:
+    def get_batch(self, idxs: list[int] | Tensor) -> tuple[Tensor, Tensor]:
+        if isinstance(idxs, Tensor):
+            assert idxs.dim() == 1
         inputs = []
         outputs = []
         for idx in idxs:

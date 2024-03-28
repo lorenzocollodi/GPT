@@ -1,8 +1,8 @@
-from torch import concat, long, zeros, Tensor, nn
-from mini_gpt.models.blocks import (
-    MaskedMultiHeadAttentionBlock,
-    MultiHeadAttentionBlock,
-)
+from torch import Tensor, concat, long, nn, zeros
+
+from mini_gpt.models.blocks import GPTBlock
+
+nn.MultiheadAttention
 
 
 class GPT(nn.Module):
@@ -13,36 +13,55 @@ class GPT(nn.Module):
         positional_encoding: int = 64,
         encoding_dimension: int = 960,
         context_length: int = 8,
+        heads: int = 8,
+        k_size: int = 64,
     ):
         super().__init__()
         self._num_tokens = num_tokens
-        self.input_block = MaskedMultiHeadAttentionBlock(
-            input_size=positional_encoding + encoding_dimension
-        )
+        self._n_features = positional_encoding + encoding_dimension
+        self._heads = heads
+        self._context_length = context_length
         self.seq_blocks = nn.Sequential(
             *[
-                MultiHeadAttentionBlock(
-                    input_size=positional_encoding + encoding_dimension
+                GPTBlock(
+                    input_size=self._n_features,
+                    k_size=k_size,
+                    heads=heads,
+                    output_size=self._n_features,
+                    context_length=context_length,
                 )
                 for _ in range(depth)
             ]
         )
-        self.meaning_embeddings = nn.Linear(num_tokens, encoding_dimension)
-        self.pos_embeddings = nn.Parameter(
-            zeros(context_length, positional_encoding), requires_grad=True
+        self.meaning_embeddings = nn.Embedding(num_tokens, encoding_dimension)
+        self.pos_embeddings = nn.Embedding(context_length, positional_encoding)
+        self.out_mlp = nn.Linear(
+            context_length * (positional_encoding + encoding_dimension), num_tokens
         )
-        self.out_mlp = nn.Linear(positional_encoding + encoding_dimension, num_tokens)
+        self._CELoss = nn.CrossEntropyLoss()
 
-    def forward(self, x: Tensor) -> Tensor:
+    def forward(
+        self, x: Tensor, gt: Tensor | None = None, mask: Tensor | None = None
+    ) -> Tensor:
         B, _ = x.shape
-        embeddings = self.meaning_embeddings(
-            nn.functional.one_hot(x, num_classes=self._num_tokens).float()
+        embeddings = self.meaning_embeddings.forward(x)
+        pos_embeddings = self.pos_embeddings.forward(
+            Tensor([pos_idx for pos_idx in range(self._context_length)]).long()
         )
-        embeddings = concat((embeddings, self.pos_embeddings.repeat(B, 1, 1)), 2)
-        output = self.input_block.forward(embeddings)
-        output = self.seq_blocks(output)
+        assert isinstance(embeddings, Tensor)
+        assert isinstance(pos_embeddings, Tensor)
+        inpt = concat((embeddings, pos_embeddings.repeat(B, 1, 1)), 2)
+
+        for block in self.seq_blocks:
+            inpt = block.forward(inpt, mask)
+        assert isinstance(inpt, Tensor)
+        output = inpt.view(B, -1)
         logits = self.out_mlp(output)
-        return logits
+        assert isinstance(logits, Tensor)
+        if gt is None:
+            return logits
+        loss = self._CELoss(logits, gt)
+        return loss
 
 
 if __name__ == "__main__":
