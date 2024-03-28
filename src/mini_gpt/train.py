@@ -23,7 +23,9 @@ def train():
 
     writer = SummaryWriter()
     tokenizer = PreTrainedTokenizerFast(tokenizer_file=TOKENIZER_PATH)
-    train_dataset = TokensDataset(CONTEXT_LENGTH, TRAIN_DATA_PATH, tokenizer, data_device)
+    train_dataset = TokensDataset(
+        CONTEXT_LENGTH, TRAIN_DATA_PATH, tokenizer, data_device
+    )
     val_dataset = TokensDataset(CONTEXT_LENGTH, VAL_DATA_PATH, tokenizer, data_device)
     gpt_model = GPT().to(data_device)
     for param in gpt_model.parameters():

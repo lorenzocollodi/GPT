@@ -4,7 +4,11 @@ from transformers import PreTrainedTokenizerFast
 
 class TokensDataset:
     def __init__(
-        self, context_length: int, data_path: str, tokenizer: PreTrainedTokenizerFast, data_device: device,
+        self,
+        context_length: int,
+        data_path: str,
+        tokenizer: PreTrainedTokenizerFast,
+        data_device: device,
     ) -> None:
         self._text = open(data_path, "r").read()
         self.tokenizer = tokenizer
