@@ -1,6 +1,6 @@
 from torch import Tensor, concat, long, nn, zeros
 
-from mini_gpt.models.blocks import MaskedMultiHeadAttentionBlock
+from mini_gpt.models.blocks import GPTBlock
 
 nn.MultiheadAttention
 
@@ -13,13 +13,22 @@ class GPT(nn.Module):
         positional_encoding: int = 64,
         encoding_dimension: int = 960,
         context_length: int = 8,
+        heads: int = 8,
+        k_size: int = 64,
     ):
         super().__init__()
         self._num_tokens = num_tokens
+        self._n_features = positional_encoding + encoding_dimension
+        self._heads = heads
+        self._context_length = context_length
         self.seq_blocks = nn.Sequential(
             *[
-                MaskedMultiHeadAttentionBlock(
-                    input_size=positional_encoding + encoding_dimension
+                GPTBlock(
+                    input_size=self._n_features,
+                    k_size=k_size,
+                    heads=heads,
+                    output_size=self._n_features,
+                    context_length=context_length,
                 )
                 for _ in range(depth)
             ]
@@ -34,10 +43,10 @@ class GPT(nn.Module):
     def forward(
         self, x: Tensor, gt: Tensor | None = None, mask: Tensor | None = None
     ) -> Tensor:
-        B, C = x.shape
+        B, _ = x.shape
         embeddings = self.meaning_embeddings.forward(x)
         pos_embeddings = self.pos_embeddings.forward(
-            Tensor([pos_idx for pos_idx in range(C)]).long()
+            Tensor([pos_idx for pos_idx in range(self._context_length)]).long()
         )
         assert isinstance(embeddings, Tensor)
         assert isinstance(pos_embeddings, Tensor)
