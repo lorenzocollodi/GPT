@@ -1,4 +1,4 @@
-from torch import Tensor, concat, long, nn, zeros
+from torch import Tensor, concat, long, nn, tensor, zeros
 
 from mini_gpt.models.blocks import GPTBlock
 
@@ -46,10 +46,11 @@ class GPT(nn.Module):
         B, _ = x.shape
         embeddings = self.meaning_embeddings.forward(x)
         pos_embeddings = self.pos_embeddings.forward(
-            Tensor(
+            tensor(
                 [pos_idx for pos_idx in range(self._context_length)],
                 device=embeddings.device,
-            ).long()
+                dtype=long,
+            )
         )
         assert isinstance(embeddings, Tensor)
         assert isinstance(pos_embeddings, Tensor)
