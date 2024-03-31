@@ -1,5 +1,6 @@
 import argparse
 
+from tqdm import tqdm
 from torch import cuda, device, no_grad, optim, randint
 from torch.utils.tensorboard import SummaryWriter
 from transformers import PreTrainedTokenizerFast
@@ -21,6 +22,7 @@ def parse_arguments() -> TrainConfig:
     parser.add_argument("--context-length", type=int, default=8)
     parser.add_argument("--train-data", type=str, default="data/train.txt")
     parser.add_argument("--val-data", type=str, default="data/val.txt")
+    parser.add_argument("--log", action="store_true", default=False)
     arguments = {key: value for key, value in parser.parse_args()._get_kwargs()}
     return TrainConfig(**arguments)
 
@@ -31,6 +33,7 @@ def train(args: TrainConfig):
     else:
         data_device = device("cpu")
 
+    num_steps = args.epochs*args.val_every
     writer = SummaryWriter()
     tokenizer = PreTrainedTokenizerFast(tokenizer_file=args.tokenizer)
     train_dataset = TokensDataset(
@@ -43,10 +46,9 @@ def train(args: TrainConfig):
     for param in gpt_model.parameters():
         param.requires_grad = True
     optimizer = optim.AdamW(gpt_model.parameters())
-    for epoch in range(args.epochs):
-        gpt_model.train()
-        for step in range(args.val_every):
-            step = epoch * args.val_every + step
+    with tqdm(range(num_steps), total=num_steps) as progress_bar:
+        for step in progress_bar:
+            gpt_model.train()
             batch_idxs = randint(
                 high=len(train_dataset) - args.context_length, size=(args.batch_size,)
             )
@@ -60,27 +62,31 @@ def train(args: TrainConfig):
                 batch_y,
                 mask.reshape(-1, args.context_length),
             )
-            writer.add_scalar("loss/train", loss, global_step=step)
+            progress_bar.set_postfix(train_loss = loss.item())
+            if args.log:
+                writer.add_scalar("loss/train", loss, global_step=step)
             for param in gpt_model.parameters():
                 param.grad = None
             loss.backward()
-            print(loss)
             optimizer.step()
-        gpt_model.eval()
-        for step in range(len(val_dataset)):
-            batch_x, batch_y = val_dataset[step]
-            val_loss = 0
-            with no_grad():
-                batch_y = expand_gt(batch_x.unsqueeze(0), batch_y)
-                batch_x = time_expand(batch_x.unsqueeze(0))
-                mask = get_mask(batch_x)
-                val_loss += gpt_model.forward(
-                    batch_x.reshape(-1, args.context_length),
-                    batch_y,
-                    mask.reshape(-1, args.context_length),
-                )
-            val_loss /= len(val_dataset)
-            writer.add_scalar("loss/val", val_loss, global_step=epoch)
+            if (step + 1) % args.val_every == 0:
+                gpt_model.eval()
+                for step in range(len(val_dataset)):
+                    batch_x, batch_y = val_dataset[step]
+                    val_loss = 0
+                    with no_grad():
+                        batch_y = expand_gt(batch_x.unsqueeze(0), batch_y)
+                        batch_x = time_expand(batch_x.unsqueeze(0))
+                        mask = get_mask(batch_x)
+                        val_loss += gpt_model.forward(
+                            batch_x.reshape(-1, args.context_length),
+                            batch_y,
+                            mask.reshape(-1, args.context_length),
+                        )
+                    val_loss /= len(val_dataset)
+                    progress_bar.set_postfix(train_loss = val_loss)
+                    if args.log:
+                        writer.add_scalar("loss/val", val_loss.item(), global_step=(step+1)//args.val_every)
 
 
 if __name__ == "__main__":

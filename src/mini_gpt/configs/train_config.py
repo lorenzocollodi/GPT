@@ -10,3 +10,4 @@ class TrainConfig:
     context_length: int
     train_data: str
     val_data: str
+    log: bool
