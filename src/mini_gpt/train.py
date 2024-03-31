@@ -1,8 +1,8 @@
 import argparse
 
-from tqdm import tqdm
 from torch import cuda, device, no_grad, optim, randint
 from torch.utils.tensorboard import SummaryWriter
+from tqdm import tqdm
 from transformers import PreTrainedTokenizerFast
 
 from mini_gpt.configs import TrainConfig
@@ -33,7 +33,7 @@ def train(args: TrainConfig):
     else:
         data_device = device("cpu")
 
-    num_steps = args.epochs*args.val_every
+    num_steps = args.epochs * args.val_every
     writer = SummaryWriter()
     tokenizer = PreTrainedTokenizerFast(tokenizer_file=args.tokenizer)
     train_dataset = TokensDataset(
@@ -62,7 +62,7 @@ def train(args: TrainConfig):
                 batch_y,
                 mask.reshape(-1, args.context_length),
             )
-            progress_bar.set_postfix(train_loss = loss.item())
+            progress_bar.set_postfix(train_loss=loss.item())
             if args.log:
                 writer.add_scalar("loss/train", loss, global_step=step)
             for param in gpt_model.parameters():
@@ -84,9 +84,13 @@ def train(args: TrainConfig):
                             mask.reshape(-1, args.context_length),
                         )
                     val_loss /= len(val_dataset)
-                    progress_bar.set_postfix(train_loss = val_loss)
+                    progress_bar.set_postfix(train_loss=val_loss)
                     if args.log:
-                        writer.add_scalar("loss/val", val_loss.item(), global_step=(step+1)//args.val_every)
+                        writer.add_scalar(
+                            "loss/val",
+                            val_loss.item(),
+                            global_step=(step + 1) // args.val_every,
+                        )
 
 
 if __name__ == "__main__":
